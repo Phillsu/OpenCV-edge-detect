@@ -1,13 +1,48 @@
-import cv2
+import math
+import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
-import math
 
-img1 = 'test1.jpg'
-img = cv2.imread(img1, cv2.IMREAD_GRAYSCALE)
-img = cv2.GaussianBlur(img, (5, 5), 0.5)
-cv2.imshow(img)
-'''
+# 簽名檔
+def add_signature(src, pic):
+    h = src.shape[0]
+    w = src.shape[1]
+    h1 = pic.shape[0]
+    w1 = pic.shape[1]
+    dst = np.zeros((h, w))
+    for item in range(h):
+        for item2 in range(w):
+            if src[item, item2] == 0:
+                dst[item, item2] = 1
+                cv.circle(pic, (item2 * 3, item * 3), 5, (255, 0, 0), -1)
+    return pic
+
+# 點
+def point(x, i, j):
+    #這裡會爆一個zero div... 的錯 後來讓i != 0 就解決了
+    if i ==0:
+        i = 0.001
+    y = -x * math.cos(i * math.pi / 180) / math.sin(i * math.pi / 180) + (j - max_rho / 2) / math.sin(i * math.pi / 180)
+    return y
+
+
+img = 'my.jpg'
+img = cv.imread(img, cv.IMREAD_GRAYSCALE)
+name = cv.imread("name2.png")
+name = cv.cvtColor(name, cv.COLOR_RGB2GRAY)
+# Gaussian Blur
+img = cv.GaussianBlur(img, (3, 3), 0)
+
+# Sobel filter
+x = cv.Sobel(img, cv.CV_16S, 1, 0)
+y = cv.Sobel(img, cv.CV_16S, 0, 1)
+
+# 轉回uint8
+absX = cv.convertScaleAbs(x)
+absY = cv.convertScaleAbs(y)
+
+dst = cv.addWeighted(absX, 0.5, absY, 0.5, 0)
+
 w, h = img.shape
 
 # 計算梯度的幅值圖像和角度圖像
@@ -16,15 +51,13 @@ Py = np.array(([-1, -1, -1], [0, 0, 0], [1, 1, 1]), dtype='float32')
 
 gx = cv.filter2D(img, -1, Px)
 gy = cv.filter2D(img, -1, Py)
-
 M = abs(gx) + abs(gy)
 Xta = np.zeros([w, h])
-
 for i in range(w):
     for j in range(h):
         Xta[i, j] = math.atan2(gy[i, j], gx[i, j]) * 180 / math.pi
 
-# 非極大值抑制
+# Non-Maximum Suppression
 # 將Xta劃分到4個區域 0,90,45,-45
 for i in range(w):
     for j in range(h):
@@ -51,13 +84,9 @@ for i in range(2, (w - 1)):
         elif (Xta[i, j] == 45 and M[i, j] == max(M[i, j], M[i + 1, j + 1], M[i - 1, j - 1])):
             new_img[i, j] = M[i, j]
 
-# plt.imshow(M)
-# plt.imshow(new_img)
-# plt.show()
-
-# 雙閾值檢測和邊緣連接
-T_H = 0.9 * np.max(new_img)
-T_L = 0.3 * np.max(new_img)
+# 雙門檻值測跟邊緣連接
+T_H = 0.25 * np.max(new_img)
+T_L = 0.1 * np.max(new_img)
 canny_img = np.zeros([w, h])
 for i in range(w):
     for j in range(h):
@@ -69,9 +98,10 @@ for i in range(w):
                 for local_h in range(j - 1, j + 1):
                     if (local_w != i and local_h != j) and new_img[local_w, local_h] > T_H:
                         canny_img[i, j] = 1
-
-# plt.imshow(canny_img)
-# plt.show()
+# plot預設會自動補色 用cmap指定為grayscale
+# canny_img = add_signature(name,canny_img)
+plt.imshow(canny_img, cmap='gray')
+plt.show()
 
 # 霍夫變換
 max_rho = round(2 * math.sqrt(w ** 2 + h ** 2))
@@ -88,18 +118,6 @@ for i in range(w):
                 hough_space[theta, rho + 1] += 1
                 hough_space[theta, rho - 1] += 1
 
-plt.imshow(cv.resize(hough_space, (w, h)))
-plt.show()
-
-
-def point(x, i, j):
-    if i == 0:
-        i = 0.01
-    y = -x * math.cos(i * math.pi / 180) / math.sin(i * math.pi / 180) + (j - max_rho / 2) / math.sin(i * math.pi / 180)
-
-    return y
-
-
 # 直線偵測
 T = 0.5 * np.max(hough_space)
 for i in range(180):
@@ -109,7 +127,6 @@ for i in range(180):
             y = [point(1, i, j), point(w, i, j)]
             plt.plot(y, x, color="red", linewidth=1)
 
-plt.imshow(img)
+img = add_signature(name, img)
+plt.imshow(img, cmap='gray')
 plt.show()
-
-'''
