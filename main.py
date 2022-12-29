@@ -26,36 +26,31 @@ def point(x, i, j):
     return y
 
 
-img = 'my.jpg'
+img = 'test1.jpg'
 img = cv.imread(img, cv.IMREAD_GRAYSCALE)
 name = cv.imread("name2.png")
 name = cv.cvtColor(name, cv.COLOR_RGB2GRAY)
-# Gaussian Blur
+
+# Gaussian Blur 這裡應該可以用function 嗎...
 img = cv.GaussianBlur(img, (3, 3), 0)
 
-# Sobel filter
+# Sobel filter -1 這裡應該可以用function  嗎...
 x = cv.Sobel(img, cv.CV_16S, 1, 0)
 y = cv.Sobel(img, cv.CV_16S, 0, 1)
 
-# 轉回uint8
+# Sobel filter -2 轉回uint8
 absX = cv.convertScaleAbs(x)
 absY = cv.convertScaleAbs(y)
 
-dst = cv.addWeighted(absX, 0.5, absY, 0.5, 0)
+M = cv.addWeighted(absX, 0.5, absY, 0.5, 0)
 
 w, h = img.shape
 
-# 計算梯度的幅值圖像和角度圖像
-Px = np.array(([-1, 0, 1], [-1, 0, 1], [-1, 0, 1]), dtype='float32')
-Py = np.array(([-1, -1, -1], [0, 0, 0], [1, 1, 1]), dtype='float32')
-
-gx = cv.filter2D(img, -1, Px)
-gy = cv.filter2D(img, -1, Py)
-M = abs(gx) + abs(gy)
+# math.atan2 =是計算弧度 角度 = 弧度*180/ pi
 Xta = np.zeros([w, h])
 for i in range(w):
     for j in range(h):
-        Xta[i, j] = math.atan2(gy[i, j], gx[i, j]) * 180 / math.pi
+        Xta[i, j] = math.atan2(absY[i, j], absX[i, j]) * 180 / math.pi
 
 # Non-Maximum Suppression
 # 將Xta劃分到4個區域 0,90,45,-45
@@ -72,7 +67,7 @@ for i in range(w):
 
 new_img = np.zeros([w, h])
 
-# 遍歷3*3區域
+# 遍歷3*3區域 保留連續點最大值
 for i in range(2, (w - 1)):
     for j in range(2, (h - 1)):
         if (Xta[i, j] == 0 and M[i, j] == max(M[i, j], M[i, j + 1], M[i, j - 1])):
@@ -85,7 +80,7 @@ for i in range(2, (w - 1)):
             new_img[i, j] = M[i, j]
 
 # 雙門檻值測跟邊緣連接
-T_H = 0.25 * np.max(new_img)
+T_H = 0.2 * np.max(new_img)
 T_L = 0.1 * np.max(new_img)
 canny_img = np.zeros([w, h])
 for i in range(w):
@@ -98,12 +93,13 @@ for i in range(w):
                 for local_h in range(j - 1, j + 1):
                     if (local_w != i and local_h != j) and new_img[local_w, local_h] > T_H:
                         canny_img[i, j] = 1
+
 # plot預設會自動補色 用cmap指定為grayscale
 # canny_img = add_signature(name,canny_img)
 plt.imshow(canny_img, cmap='gray')
 plt.show()
 
-# 霍夫變換
+# hough transform
 max_rho = round(2 * math.sqrt(w ** 2 + h ** 2))
 hough_space = np.zeros([180, max_rho])
 
@@ -118,14 +114,14 @@ for i in range(w):
                 hough_space[theta, rho + 1] += 1
                 hough_space[theta, rho - 1] += 1
 
-# 直線偵測
+# draw line
 T = 0.5 * np.max(hough_space)
 for i in range(180):
     for j in range(max_rho):
         if hough_space[i, j] >= T:
             x = [1, w]
             y = [point(1, i, j), point(w, i, j)]
-            plt.plot(y, x, color="red", linewidth=1)
+            plt.plot(y, x, color="white", linewidth=1)
 
 img = add_signature(name, img)
 plt.imshow(img, cmap='gray')
