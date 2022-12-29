@@ -114,6 +114,9 @@ for i in range(w):
                 hough_space[theta, rho + 1] += 1
                 hough_space[theta, rho - 1] += 1
 
+plt.imshow(hough_space)
+plt.show()
+
 # draw line
 T = 0.5 * np.max(hough_space)
 for i in range(180):
@@ -121,7 +124,7 @@ for i in range(180):
         if hough_space[i, j] >= T:
             x = [1, w]
             y = [point(1, i, j), point(w, i, j)]
-            plt.plot(y, x, color="white", linewidth=1)
+            plt.plot(y, x, color="red", linewidth=1)
 
 img = add_signature(name, img)
 plt.imshow(img, cmap='gray')
